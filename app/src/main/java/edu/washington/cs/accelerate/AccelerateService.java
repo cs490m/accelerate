@@ -23,7 +23,8 @@ public class AccelerateService extends Service {
     private SensorManager sensorManager;
     private Sensor accelerometerSensor;
     private Sensor barometerSensor;
-    private Map<String, SensorReadings> sensorReadings = new HashMap<String, SensorReadings>();
+
+    private MetricBackend mMetricBackend = new MetricBackend(this);
 
     public AccelerateService() {
         Log.i(TAG, "Service started...");
@@ -44,11 +45,10 @@ public class AccelerateService extends Service {
             accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
             Log.i(TAG, "Registered sensors...");
+
             sensorManager.registerListener(new SensorEventListener() {
                 @Override
                 public void onSensorChanged(SensorEvent sensorEvent) {
-                    Log.i(TAG, String.format("x: %f, y: %f, z: %f",
-                            sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]));
                     AccelerateService.this.addEvent(sensorEvent);
                 }
 
@@ -56,20 +56,19 @@ public class AccelerateService extends Service {
                 public void onAccuracyChanged(Sensor sensor, int i) {
 
                 }
-            }, accelerometerSensor, 1000 * 1000 * 10, 1000 * 1000 * 10);
+            }, accelerometerSensor, 1000 * 1000, 1000 * 1000 * 10);
 
             sensorManager.registerListener(new SensorEventListener() {
                 @Override
                 public void onSensorChanged(SensorEvent sensorEvent) {
-                    Log.i(TAG, String.format("Barometer: %f %f %f",
-                            sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]));
+                    AccelerateService.this.addEvent(sensorEvent);
                 }
 
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int i) {
 
                 }
-            }, barometerSensor, 1000 * 1000 * 10, 1000 * 1000 * 10);
+            }, barometerSensor, 1000 * 1000, 1000 * 1000 * 10);
 
         } else {
             Log.i(TAG, "Service is already active, skipping registration.");
@@ -83,32 +82,7 @@ public class AccelerateService extends Service {
     }
 
     public void addEvent(SensorEvent sensorEvent) {
-        String name = sensorEvent.sensor.getName();
-        if (!sensorReadings.containsKey(name)) {
-            sensorReadings.put(name, new SensorReadings(name));
-        }
-
-        SensorReadings readings = sensorReadings.get(name);
-        readings.measurements.add(new Measurement(sensorEvent.values, sensorEvent.timestamp));
-    }
-
-
-    private class Measurement {
-        public float[] values;
-        public long timestamp;
-
-        public Measurement(float[] values, long timestamp) {
-            this.values = values;
-            this.timestamp = timestamp;
-        }
-    }
-
-    private class SensorReadings {
-        private String name;
-        private List<Measurement> measurements = new ArrayList<Measurement>();
-
-        public SensorReadings(String name) {
-            this.name = name;
-        }
+        mMetricBackend.addEvent(sensorEvent.sensor.getName(),
+                sensorEvent.timestamp, sensorEvent.values);
     }
 }
